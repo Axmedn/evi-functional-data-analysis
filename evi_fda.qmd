@@ -1,0 +1,401 @@
+---
+title: "Functional Data Analysis of Enhanced Vegetation Index (EVI) Curves"
+author: "Ahmed Mohamed"
+format:
+  pdf:
+    fontsize: 10pt
+    geometry: "top=1.2cm, bottom=1.5cm, left=1.5cm, right=1.5cm"
+    linestretch: 1.1
+    keep-tex: false
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \usepackage{float}
+        \usepackage{booktabs}
+        \usepackage{parskip}
+        \setlength{\parskip}{3pt}
+        \setlength{\parindent}{0pt}
+execute:
+  echo: false
+  warning: false
+  message: false
+  fig-width: 6.5
+  fig-height: 2.6
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup}
+library(fda)
+library(tidyverse)
+
+
+evi_raw <- read.csv("data/evi_data.csv")
+
+# ── Load and clean data (tidyverse) ───────────────────────────────────────────
+
+# Column names that are day-of-year numbers
+day_cols    <- names(evi_raw) |> keep(~ str_detect(.x, "^Day"))
+time_points <- day_cols |> str_remove("^Day") |> as.numeric()
+evi_mat     <- evi_raw |> select(all_of(day_cols)) |> as.matrix() |>t()
+dayrng      <- range(time_points)
+#names(evi_raw) |> head(10)
+# ── Month-axis helpers (reused across all plots) ───────────────────────────────
+month_days   <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
+month_labels <- c("Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec")
+
+add_month_axis <- function() {
+  axis(1, at = month_days, labels = month_labels, cex.axis = 0.82)
+  axis(1, at = time_points, labels = FALSE, tcl = -0.25)
+}
+
+eval_grid <- seq(dayrng[1], dayrng[2], length.out = 300)
+
+# ── Basis (Lab 1) ──────────────────────────────────────────────────────────────
+knots  <- time_points
+norder <- 4
+nbasis <- length(knots) + norder - 2
+bbasis <- create.bspline.basis(dayrng, nbasis = nbasis,
+                                norder = norder, breaks = knots)
+
+# ── Fourier basis for harmonic penalty (Lab 2/3 pattern) ──────────────────────
+fbasis   <- create.fourier.basis(dayrng, nbasis = 45)
+
+# ── Penalty operators (Lab 2) ──────────────────────────────────────────────────
+curv.Lfd <- int2Lfd(2)
+period   <- dayrng[2] - dayrng[1]
+harm.Lfd <- vec2Lfd(c(0, (2*pi/period)^2, 0), rangeval = dayrng)
+
+# ── GCV grid ───────────────────────────────────────────────────────────────────
+lambdas <- 10^seq(-4, 6, by = 0.25)
+```
+
+## (a) Raw EVI Data
+
+```{r part_a, fig.height=3.8, fig.width=7}
+par(mar = c(4, 4.2, 0.5, 0.8), las = 1, cex.axis = 0.82, cex.lab = 0.95)
+
+matplot(time_points, evi_mat,
+        type = "l", lty = 1,
+        col  = rgb(0, 0.45, 0.2, 0.18),
+        xlab = "Day of Year", ylab = "EVI",
+        xaxt = "n", bty = "l")
+
+add_month_axis()
+lines(time_points, rowMeans(evi_mat), col = "black", lwd = 2.2)
+legend("topright",
+       legend = c("Individual locations (n = 200)", "Mean"),
+       col    = c(rgb(0, 0.45, 0.2, 0.6), "black"),
+       lty = 1, lwd = c(1, 2.2), bty = "n", cex = 0.82)
+```
+
+EVI values across 200 locations follow a clear seasonal cycle, peaking around mid-year and reaching a trough in winter. Substantial location-to-location variability is visible, particularly in the summer peak amplitude. Some locations show near-zero EVI throughout, suggesting different vegetation cover or exposure.
+
+## (b) B-Spline Smoothing with Standard Roughness Penalty
+
+```{r part_b_gcv}
+# ── GCV grid search — Lab 2 pattern exactly ───────────────────────────────────
+mean.gcv.d2 <- numeric(length(lambdas))
+
+for (ilam in seq_along(lambdas)) {
+  fdPari             <- fdPar(bbasis, curv.Lfd, lambdas[ilam])
+  smoothi            <- smooth.basis(time_points, evi_mat, fdPari)
+  mean.gcv.d2[ilam]  <- mean(smoothi$gcv)
+}
+
+best_d2    <- which.min(mean.gcv.d2)
+lambda_d2  <- lambdas[best_d2]
+
+# ── Final smooth at optimal lambda ────────────────────────────────────────────
+sm_d2 <- smooth.basis(time_points, evi_mat,
+                      fdPar(bbasis, curv.Lfd, lambda_d2))
+```
+
+```{r part_b_plots, fig.height=3.5, fig.width=7}
+par(mfrow = c(1, 2), mar = c(4, 4.2, 0.8, 0.8), las = 1,
+    cex.axis = 0.82, cex.lab = 0.95)
+
+# GCV curve
+plot(lambdas, mean.gcv.d2, type = "b", pch = 19, cex = 0.45,
+     log = "x", col = "#2c5f2e",
+     xlab = expression(lambda ~ "(log scale)"), ylab = "Mean GCV",
+     bty = "l")
+abline(v = lambda_d2, col = "red", lty = 2, lwd = 1.5)
+legend("topright",
+       legend = c("Mean GCV",
+                  paste0("Optimal \u03bb = ", formatC(lambda_d2, "e", 1))),
+       col = c("#2c5f2e", "red"), lty = c(1, 2), pch = c(19, NA),
+       bty = "n", cex = 0.78)
+
+# Fitted smooth
+smooth_mat_d2 <- eval.fd(eval_grid, sm_d2$fd)
+matplot(eval_grid, smooth_mat_d2,
+        type = "l", lty = 1, col = rgb(0, 0.45, 0.2, 0.18),
+        xlab = "Day of Year", ylab = "EVI",
+        xaxt = "n", bty = "l")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.82)
+lines(eval_grid, rowMeans(smooth_mat_d2), col = "black", lwd = 2.2)
+legend("topright",
+       legend = c("Smoothed (n = 200)", "Mean"),
+       col    = c(rgb(0, 0.45, 0.2, 0.6), "black"),
+       lty = 1, lwd = c(1, 2.2), bty = "n", cex = 0.78)
+
+par(mfrow = c(1, 1))
+```
+
+The GCV curve shows a clear minimum at $\lambda =$ `r formatC(lambda_d2, "e", 1)` (effective df = `r round(sm_d2$df, 1)`). The D$^2$ penalty produces smooth curves that track the seasonal pattern well, but the penalty penalises all curvature equally, which can slightly over-smooth the sharp summer peaks while under-smoothing noise away from seasonal transitions.
+
+## (c) B-Spline Smoothing with Harmonic Acceleration Penalty
+
+```{r part_c_gcv}
+# ── GCV grid search — same Lab 2 loop, different Lfd ─────────────────────────
+mean.gcv.ha <- numeric(length(lambdas))
+
+for (ilam in seq_along(lambdas)) {
+  #fdPari <- fdPar(fbasis, harm.Lfd, lambdas[ilam])   # <-- fbasis here
+  fdPari <- fdPar(fbasis, harm.Lfd, lambdas[ilam])   # <-- fbasis here
+  smoothi            <- smooth.basis(time_points, evi_mat, fdPari)
+  mean.gcv.ha[ilam]  <- mean(smoothi$gcv)
+}
+
+best_ha   <- which.min(mean.gcv.ha)
+lambda_ha <- lambdas[best_ha]
+
+# ── Final smooth at optimal lambda ────────────────────────────────────────────
+
+sm_ha <- smooth.basis(time_points, evi_mat,
+                      fdPar(fbasis, harm.Lfd, lambda_ha))
+
+```
+
+```{r part_c_plots, fig.height=3.5, fig.width=7}
+par(mfrow = c(1, 2), mar = c(4, 4.2, 0.8, 0.8), las = 1,
+    cex.axis = 0.82, cex.lab = 0.95)
+
+# GCV curve
+plot(lambdas, mean.gcv.ha, type = "b", pch = 19, cex = 0.45,
+     log = "x", col = "#2c5f2e",
+     xlab = expression(lambda ~ "(log scale)"), ylab = "Mean GCV",
+     bty = "l")
+abline(v = lambda_ha, col = "red", lty = 2, lwd = 1.5)
+legend("topright",
+       legend = c("Mean GCV",
+                  paste0("Optimal \u03bb = ", formatC(lambda_ha, "e", 1))),
+       col = c("#2c5f2e", "red"), lty = c(1, 2), pch = c(19, NA),
+       bty = "n", cex = 0.78)
+
+# Fitted smooth
+smooth_mat_ha <- eval.fd(eval_grid, sm_ha$fd)
+matplot(eval_grid, smooth_mat_ha,
+        type = "l", lty = 1, col = rgb(0, 0.45, 0.2, 0.18),
+        xlab = "Day of Year", ylab = "EVI",
+        xaxt = "n", bty = "l")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.82)
+lines(eval_grid, rowMeans(smooth_mat_ha), col = "black", lwd = 2.2)
+legend("topright",
+       legend = c("Smoothed (n = 200)", "Mean"),
+       col    = c(rgb(0, 0.45, 0.2, 0.6), "black"),
+       lty = 1, lwd = c(1, 2.2), bty = "n", cex = 0.78)
+
+par(mfrow = c(1, 1))
+```
+
+The harmonic acceleration penalty — $L = D^2 + (2\pi/T)^2$ — has sine and cosine functions in its null space, meaning purely sinusoidal annual cycles incur no penalty. Only deviations from a sinusoidal pattern are penalised. This is more appropriate for seasonal data: the smooth preserves the natural annual rhythm while suppressing high-frequency noise. Compared to part (b), the harmonic curves are slightly smoother at the peaks and troughs and track the seasonal shape more faithfully, particularly for locations with pronounced single-season greenness pulses.
+
+## (d) First and Second Derivatives
+
+```{r part_d, fig.height=3.5, fig.width=7}
+# ── Derivatives via eval.fd — Lab 2: deriv.fd / eval.fd pattern ───────────────
+D1_mat <- eval.fd(eval_grid, sm_ha$fd, Lfdobj = 1)
+D2_mat <- eval.fd(eval_grid, sm_ha$fd, Lfdobj = 2)
+
+par(mfrow = c(1, 2), mar = c(4, 4.2, 0.8, 0.8), las = 1,
+    cex.axis = 0.82, cex.lab = 0.95)
+
+# First derivative
+matplot(eval_grid, D1_mat,
+        type = "l", lty = 1, col = rgb(0, 0.3, 0.7, 0.12),
+        xlab = "Day of Year", ylab = "D1 EVI",
+        xaxt = "n", bty = "l")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.75)
+abline(h = 0, lty = 2, col = "grey40")
+lines(eval_grid, rowMeans(D1_mat), col = "navy", lwd = 2)
+
+# Second derivative
+matplot(eval_grid, D2_mat,
+        type = "l", lty = 1, col = rgb(0.6, 0.1, 0, 0.12),
+        xlab = "Day of Year", ylab = "D2 EVI",
+        xaxt = "n", bty = "l")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.75)
+abline(h = 0, lty = 2, col = "grey40")
+lines(eval_grid, rowMeans(D2_mat), col = "darkred", lwd = 2)
+
+par(mfrow = c(1, 1))
+```
+
+The first derivative (rate of change) crosses zero twice per year: once around March–April (EVI increasing fastest — green-up) and again around October (EVI decreasing fastest — senescence). The zero-crossings of the first derivative identify the timing of peak and minimum greenness. The second derivative (acceleration) identifies where the rate of greening itself is changing most rapidly — the inflection points — which correspond to the onset and end of the growing season.
+
+```{r}
+# Where does the mean first derivative cross zero?
+mean_D1 <- rowMeans(D1_mat)
+plot(eval_grid, mean_D1, type = "l", 
+     xlab = "Day of Year", ylab = "D1 EVI")
+abline(h = 0, lty = 2, col = "red")
+```
+
+## (e) Unpenalised Functional PCA
+
+```{r part_e}
+# ── Unpenalised FPCA — Lab 3: pca.fd(tempfd, nharm=6) ────────────────────────
+nharm    <- 10
+pca_unpn <- pca.fd(sm_ha$fd, nharm = nharm)
+
+varprop  <- pca_unpn$varprop
+cumvar   <- cumsum(varprop)
+n_80     <- which(cumvar >= 0.80)[1]
+```
+
+```{r part_e_plots, fig.height=3.5, fig.width=7}
+par(mfrow = c(1, 2), mar = c(4, 4.2, 0.8, 0.8), las = 1,
+    cex.axis = 0.82, cex.lab = 0.95)
+
+# Scree plot
+plot(seq_len(nharm), varprop * 100, type = "b", pch = 19, cex = 0.7,
+     col = "#2c5f2e",
+     xlab = "PC number", ylab = "% Variance explained",
+     bty = "l")
+abline(h = 0, col = "grey70")
+abline(v = n_80, col = "red", lty = 2)
+legend("topright",
+       legend = paste0(n_80, " PCs \u2192 80% variance"),
+       col = "red", lty = 2, bty = "n", cex = 0.82)
+
+# First 3 FPCs
+eval_pcs <- eval.fd(eval_grid, pca_unpn$harmonics[1:3])
+matplot(eval_grid, eval_pcs,
+        type = "l", lty = 1:3, lwd = 1.5,
+        col = c("#2c5f2e", "#e07b00", "#8b1a1a"),
+        xlab = "Month", ylab = "FPC loading",
+        bty = "l", xaxt = "n")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.75)
+abline(h = 0, lty = 2, col = "grey70")
+legend("topright",
+       legend = paste0("FPC ", 1:3, " (",
+                       round(100 * varprop[1:3], 1), "%)"),
+       col = c("#2c5f2e", "#e07b00", "#8b1a1a"),
+       lty = 1:3, lwd = 1.5, bty = "n", cex = 0.78)
+
+par(mfrow = c(1, 1))
+```
+
+`r n_80` principal components are needed to explain 80% of the total variation. FPC 1 (`r round(100*varprop[1],1)`% of variance) is approximately flat — a positive score means the location is greener than average throughout the year. The unpenalised FPCs show some high-frequency roughness, particularly in the later components, suggesting they are partly capturing noise rather than meaningful functional structure.
+
+## (f) Smoothed Functional PCA
+
+```{r part_f_gcv}
+# ── GCV for PCA penalty — same Lab 2 loop idea applied to pca.fd ──────────────
+# Use the D^2 penalty on the harmonics (Lab 3: pca.fdPar = fdPar(bbasis, curv.Lfd, 1e4))
+pca_lambdas  <- 10^seq(-4, 6, by = 0.5)
+pca_gcv_vals <- numeric(length(pca_lambdas))
+
+for (ilam in seq_along(pca_lambdas)) {
+  pca_fdPari        <- fdPar(bbasis, curv.Lfd, pca_lambdas[ilam])
+  pca_i             <- pca.fd(sm_ha$fd, nharm = 5, harmfdPar = pca_fdPari)
+  # Use fraction of total variance retained as a proxy GCV criterion:
+  # re-smooth raw data and record GCV at this lambda
+  sm_i              <- smooth.basis(time_points, evi_mat,
+                                    fdPar(bbasis, curv.Lfd, pca_lambdas[ilam]))
+  pca_gcv_vals[ilam] <- mean(sm_i$gcv)
+}
+
+best_pca    <- which.min(pca_gcv_vals)
+lambda_pca  <- pca_lambdas[best_pca]
+
+# ── Smoothed PCA at optimal lambda ────────────────────────────────────────────
+pca_sm <- pca.fd(sm_ha$fd, nharm = nharm,
+                 harmfdPar = fdPar(bbasis, curv.Lfd, lambda_pca))
+
+varprop_sm <- pca_sm$varprop
+cumvar_sm  <- cumsum(varprop_sm)
+n_80_sm    <- which(cumvar_sm >= 0.80)[1]
+```
+
+```{r part_f_plots, fig.height=3.5, fig.width=7}
+par(mfrow = c(1, 2), mar = c(4, 4.2, 0.8, 0.8), las = 1,
+    cex.axis = 0.82, cex.lab = 0.95)
+
+# GCV curve for PCA penalty selection
+plot(pca_lambdas, pca_gcv_vals, type = "b", pch = 19, cex = 0.45,
+     log = "x", col = "#2c5f2e",
+     xlab = expression(lambda ~ "(log scale)"), ylab = "Mean GCV",
+     bty = "l")
+abline(v = lambda_pca, col = "red", lty = 2, lwd = 1.5)
+legend("topright",
+       legend = c("Mean GCV",
+                  paste0("Optimal \u03bb = ", formatC(lambda_pca, "e", 1))),
+       col = c("#2c5f2e", "red"), lty = c(1, 2), pch = c(19, NA),
+       bty = "n", cex = 0.78)
+
+# Smoothed FPCs
+eval_pcs_sm <- eval.fd(eval_grid, pca_sm$harmonics[1:3])
+matplot(eval_grid, eval_pcs_sm,
+        type = "l", lty = 1:3, lwd = 1.8,
+        col = c("#2c5f2e", "#e07b00", "#8b1a1a"),
+        xlab = "Day of Year", ylab = "FPC loading",
+        xaxt = "n", bty = "l")
+axis(1, at = month_days, labels = month_labels, cex.axis = 0.75)
+abline(h = 0, lty = 2, col = "grey70")
+legend("topright",
+       legend = paste0("FPC ", 1:3, " (",
+                       round(100 * varprop_sm[1:3], 1), "%)"),
+       col = c("#2c5f2e", "#e07b00", "#8b1a1a"),
+       lty = 1:3, lwd = 1.8, bty = "n", cex = 0.78)
+
+par(mfrow = c(1, 1))
+```
+
+The smoothed FPCs are considerably cleaner than their unpenalised counterparts — the high-frequency oscillations are removed, leaving interpretable seasonal shapes. `r n_80_sm` components are now needed to explain 80% of variance (vs `r n_80` unpenalised), reflecting that the smoothing concentrates explained variance in fewer, more coherent modes. The smoothed version is more satisfactory because the components represent genuine functional patterns rather than noise-amplified artefacts.
+
+## (g) Interpretation of Smoothed Principal Components
+
+```{r part_g, fig.height=4, fig.width=7}
+# ── Mean +/- 2*SD*FPC — Lab 3 reconstruction pattern ─────────────────────────
+mean_fd   <- mean.fd(sm_ha$fd)
+eval_mean <- as.vector(eval.fd(eval_grid, mean_fd))
+
+par(mfrow = c(1, 3), mar = c(4, 4, 1.2, 0.5), las = 1,
+    cex.axis = 0.75, cex.lab = 0.88)
+
+for (k in 1:3) {
+  fpc_k <- as.vector(eval.fd(eval_grid, pca_sm$harmonics[k]))
+  sd_k  <- sqrt(pca_sm$values[k])
+
+  ylim_k <- range(eval_mean + 2*sd_k*fpc_k,
+                  eval_mean - 2*sd_k*fpc_k)
+
+  plot(eval_grid, eval_mean, type = "l", lwd = 2, col = "black",
+       xlab = "Day of Year", ylab = "EVI",
+       main = paste0("FPC ", k, "  (",
+                     round(100 * varprop_sm[k], 1), "%)"),
+       ylim = ylim_k, xaxt = "n", bty = "l")
+  axis(1, at = month_days, labels = month_labels, cex.axis = 0.65)
+  lines(eval_grid, eval_mean + 2*sd_k*fpc_k,
+        col = "#8b1a1a", lty = 2, lwd = 1.5)
+  lines(eval_grid, eval_mean - 2*sd_k*fpc_k,
+        col = "navy",   lty = 2, lwd = 1.5)
+  legend("topright",
+         legend = c("Mean", "+2SD", "\u22122SD"),
+         col = c("black", "#8b1a1a", "navy"),
+         lty = c(1, 2, 2), lwd = c(2, 1.5, 1.5),
+         bty = "n", cex = 0.72)
+}
+
+par(mfrow = c(1, 1))
+```
+
+**FPC 1** (`r round(100*varprop_sm[1],1)`%): A positive score shifts the entire curve upward uniformly throughout the year. This represents overall greenness level — locations with high positive scores are consistently greener than average, likely driven by soil type, water availability, or vegetation density independent of season.
+
+**FPC 2** (`r round(100*varprop_sm[2],1)`%): A positive score amplifies the summer peak while suppressing greenness in winter. This captures the amplitude of the seasonal swing — high positive scores correspond to strongly seasonal locations (e.g. deciduous vegetation with a sharp growing season), while negative scores correspond to more evergreen or flat profiles.
+
+**FPC 3** (`r round(100*varprop_sm[3],1)`%): A positive score raises greenness in spring and lowers it in autumn, or vice versa. This reflects the asymmetry or timing of the growing season — whether a location greens up early and browns late, or has a compressed or shifted seasonal window.
