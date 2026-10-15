@@ -139,10 +139,12 @@ n_80_sm    <- which(cumsum(varprop_sm) >= 0.80)[1]
 
 flat_max <- max(pca_lambdas[cv_error <= 1.01 * min(cv_error)])   # within 1% of the best
 
+
+
 pca_verdict <- if (lambda_pca == 0) {
   paste0("Cross-validation found no benefit from smoothing the components: no penalty ",
          "and penalties up to $\\lambda$ = ", fmt_lam(flat_max), " rebuild held-out curves ",
-         "equally well, and larger penalties make the reconstruction worse, so the components ",
+         "almost equally well (all within 1% of the lowest error), while larger penalties make the reconstruction worse, so the components ",
          "were left unpenalised. Because the curves were already smoothed before this step, ",
          "this tests the penalty on the components given that smoothing, not the whole ",
          "workflow. Heavier penalties would flatten sharp features such as the May peak in ",
