@@ -199,16 +199,17 @@ the chosen penalty (green).
 
 Cross-validation found no benefit from smoothing the components: no
 penalty and penalties up to $\lambda$ = 100 rebuild held-out curves
-equally well, and larger penalties make the reconstruction worse, so the
-components were left unpenalised. Because the curves were already
-smoothed before this step, this tests the penalty on the components
-given that smoothing, not the whole workflow. Heavier penalties would
-flatten sharp features such as the May peak in the third component, so
-the result is consistent with that feature reflecting real differences
-in green-up timing between locations, though it does not prove it, and
-eight-day sampling limits how precisely that timing can be resolved.
-Without a penalty, the first three components explain 84.2% of the
-variation (<a href="#fig-cv" class="quarto-xref">Figure 6</a>).
+almost equally well (all within 1% of the lowest error), while larger
+penalties make the reconstruction worse, so the components were left
+unpenalised. Because the curves were already smoothed before this step,
+this tests the penalty on the components given that smoothing, not the
+whole workflow. Heavier penalties would flatten sharp features such as
+the May peak in the third component, so the result is consistent with
+that feature reflecting real differences in green-up timing between
+locations, though it does not prove it, and eight-day sampling limits
+how precisely that timing can be resolved. Without a penalty, the first
+three components explain 84.2% of the variation
+(<a href="#fig-cv" class="quarto-xref">Figure 6</a>).
 
 ## 5. Limitations
 

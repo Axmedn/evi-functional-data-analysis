@@ -13,7 +13,7 @@ A functional data analysis of satellite vegetation readings. Each of 200 locatio
   - Component 1 (45.1%): height of the summer peak
   - Component 2 (32.8%): how green a location stays in winter
   - Component 3 (6.3%): timing of green-up
-- **Smoothing the components did not help.** 10-fold cross-validation showed that penalties up to λ = 100 rebuild unseen curves equally well, and larger penalties do worse. The sharp May feature in component 3 is therefore real variation in green-up timing, not noise.
+- **Smoothing the components did not help.** 10-fold cross-validation showed that penalties up to λ = 100 rebuild unseen curves almost equally well (all within 1% of the lowest error), and larger penalties do worse. The sharp May feature in component 3 is therefore real variation in green-up timing, not noise.
 
 ## Method
 
