@@ -86,7 +86,7 @@ each curve is approximately the mean plus a weighted sum of a few
 components. A smoothed version (Silverman’s method) chooses each
 component to maximise
 
-$$\frac{\operatorname{Var}\left(\int \xi(t)\,x_i(t)\,dt\right)}{\int \xi(t)^2\,dt + \lambda \int \big[D^2\xi(t)\big]^2\,dt},$$
+$$\frac{\mathrm{Var}\left(\int \xi(t)\,x_i(t)\,dt\right)}{\int \xi(t)^2\,dt + \lambda \int \big[D^2\xi(t)\big]^2\,dt},$$
 
 so a larger $\lambda$ gives smoother components. Here $\lambda$ was
 chosen by **10-fold cross-validation**: for each candidate, the
