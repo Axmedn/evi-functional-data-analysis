@@ -61,6 +61,7 @@ fbasis   <- create.fourier.basis(dayrng, nbasis = 45)
 curv.Lfd <- int2Lfd(2)                                         # L = D^2
 omega    <- 2 * pi / diff(dayrng)
 harm.Lfd <- vec2Lfd(c(0, omega^2, 0), rangeval = dayrng)       # L = omega^2 D + D^3
+
 lambdas  <- 10^seq(-4, 6, by = 0.25)
 ```
 
@@ -210,7 +211,6 @@ For both, $\lambda$ was chosen by minimising the mean generalised cross-validati
 $$\frac{\mathrm{Var}\left(\int \xi(t)\,x_i(t)\,dt\right)}{\int \xi(t)^2\,dt + \lambda \int \big[D^2\xi(t)\big]^2\,dt},$$
 
 so a larger $\lambda$ gives smoother components. Here $\lambda$ was chosen by **10-fold cross-validation**: for each candidate, the components were fitted on nine tenths of the curves, the remaining tenth were rebuilt from the first three components by least squares, and the squared reconstruction error was summed. The candidates included $\lambda = 0$ (no penalty), and a penalty was used only if it cut the error by more than 1% compared with no penalty. The curves were smoothed before this step, so this tests the penalty on the components given that smoothing, not the whole workflow.
-
 
 ## 4. Results
 

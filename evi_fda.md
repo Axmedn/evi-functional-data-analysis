@@ -92,8 +92,11 @@ so a larger $\lambda$ gives smoother components. Here $\lambda$ was
 chosen by **10-fold cross-validation**: for each candidate, the
 components were fitted on nine tenths of the curves, the remaining tenth
 were rebuilt from the first three components by least squares, and the
-squared reconstruction error was summed. The $\lambda$ with the smallest
-total error was used.
+squared reconstruction error was summed. The candidates included
+$\lambda = 0$ (no penalty), and a penalty was used only if it cut the
+error by more than 1% compared with no penalty. The curves were smoothed
+before this step, so this tests the penalty on the components given that
+smoothing, not the whole workflow.
 
 ## 4. Results
 
@@ -194,16 +197,18 @@ the chosen penalty (green).
 
 </div>
 
-Cross-validation found no benefit from smoothing the components:
-penalties up to $\lambda$ = 100 rebuild unseen curves equally well, and
-larger penalties make the reconstruction worse. The smallest penalty on
-the grid ($\lambda$ = 0.01) was therefore used, and the penalised and
-unpenalised third components lie on top of each other. The sharp feature
-in that component around May is treated as real structure, reflecting
-genuinely abrupt differences in green-up timing between locations,
-rather than noise. Without a penalty, the first three components explain
-84.2% of the variation
-(<a href="#fig-cv" class="quarto-xref">Figure 6</a>).
+Cross-validation found no benefit from smoothing the components: no
+penalty and penalties up to $\lambda$ = 100 rebuild held-out curves
+equally well, and larger penalties make the reconstruction worse, so the
+components were left unpenalised. Because the curves were already
+smoothed before this step, this tests the penalty on the components
+given that smoothing, not the whole workflow. Heavier penalties would
+flatten sharp features such as the May peak in the third component, so
+the result is consistent with that feature reflecting real differences
+in green-up timing between locations, though it does not prove it, and
+eight-day sampling limits how precisely that timing can be resolved.
+Without a penalty, the first three components explain 84.2% of the
+variation (<a href="#fig-cv" class="quarto-xref">Figure 6</a>).
 
 ## 5. Limitations
 
