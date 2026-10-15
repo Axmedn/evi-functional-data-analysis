@@ -1,43 +1,44 @@
-# Functional Data Analysis of Vegetation Index Curves
+# How Vegetation Greens and Fades Through the Year
 
-Each of 200 locations has a year of satellite Enhanced Vegetation Index (EVI) readings, taken at 46 eight-day intervals. Rather than treat those as 46 separate numbers, this project treats each location's year as one smooth curve and asks: what does a typical growing season look like, when does greening speed up and slow down, and in which ways do locations differ from each other?
+A functional data analysis of satellite vegetation readings. Each of 200 locations has a year of Enhanced Vegetation Index (EVI) readings taken every eight days. Instead of treating those as 46 separate numbers, the analysis treats each location's year as one smooth curve and asks what a typical growing season looks like, when greening is fastest, and how locations differ.
 
-Individual course project, Functional Data Analysis, University of Glasgow (2026). Written in R with the `fda` package.
+**[Read the full report](evi_fda.md)**. Written in R with the `fda` package and rendered with Quarto.
+
+![The three main ways locations differ: summer peak height, winter greenness and timing of green-up](evi_fda_files/figure-commonmark/fig-pcs-1.png)
+
+## Findings
+
+- **The typical year.** EVI sits at about 0.25 through winter, greens up fastest around 2 May, peaks around 22 July at about 0.68, and falls fastest around 10 October.
+- **How locations differ.** Three components explain 84.2% of the variation between locations:
+  - Component 1 (45.1%): height of the summer peak
+  - Component 2 (32.8%): how green a location stays in winter
+  - Component 3 (6.3%): timing of green-up
+- **Smoothing the components did not help.** 10-fold cross-validation showed that penalties up to λ = 100 rebuild unseen curves equally well, and larger penalties do worse. The sharp May feature in component 3 is therefore real variation in green-up timing, not noise.
 
 ## Method
 
-1. **Smoothing with a roughness penalty.** B-spline basis with a knot at every observation, penalising curvature (second derivative). The smoothing parameter λ was chosen by generalised cross-validation (GCV) over a grid from 10⁻⁴ to 10⁶.
-2. **Smoothing with a harmonic acceleration penalty.** This penalty leaves a pure annual sine and cosine cycle unpenalised and only penalises departures from it, which suits data where the yearly rhythm is the signal rather than noise. λ again chosen by GCV.
-3. **Derivatives.** First and second derivatives of the smoothed curves give the rate and acceleration of greening through the year.
-4. **Functional PCA**, first unpenalised, then with a roughness penalty on the components, to find the main ways the curves vary between locations.
-5. **Interpretation** by plotting the mean curve plus and minus two standard deviations of each component.
+1. **Smoothing.** Each location's readings were turned into a curve with a roughness penalty, comparing a curvature penalty (B-splines) with a harmonic acceleration penalty (Fourier basis). The harmonic penalty leaves a pure annual cycle unpenalised. Smoothing levels were chosen by generalised cross-validation (GCV).
+2. **Rates of change.** First and second derivatives of the curves give the speed of greening and where it switches on and off.
+3. **Functional PCA.** Components were found with and without a roughness penalty, with the penalty chosen by 10-fold cross-validation on held-out curves.
 
-## Results
-
-From the submitted report:
-
-- **Seasonal shape.** EVI is low and flat from January to April (0.2–0.3), rises sharply through May, peaks at 0.5–0.8 from June to August and falls steeply through October.
-- **Smoothing.** GCV chose λ = 5.6 for the curvature penalty (effective degrees of freedom 40.9) and λ = 1,000 for the harmonic acceleration penalty (26.6), which kept the summer peak while removing more short-term noise.
-- **Derivatives.** The fastest green-up is around May and the fastest decline around October; the second derivative marks the start and end of the growing season.
-- **Principal components.** Three smoothed components explain 85.2% of the variation:
-  - FPC 1 (45.6%): height of the summer peak
-  - FPC 2 (33.4%): how green a location stays in winter
-  - FPC 3 (6.2%): timing of the growing season, earlier versus later green-up
-- **Penalised vs unpenalised.** Without a penalty, the third component picked up a sharp spike and irregular wiggles, which looked like noise. Penalising the components removed this and made all three interpretable.
-
-`evi_fda.qmd` is my working notebook for the analysis. The submitted report came from a later revision that isn't in this repository, so the wording and a few smoothing choices differ slightly, and re-running the notebook may not reproduce every number above exactly.
+All numbers in the report and above are calculated when the report is rendered.
 
 ## How to run
 
 ```r
-install.packages(c("fda", "tidyverse"))
+install.packages(c("fda", "tidyverse", "quarto"))
+quarto::quarto_render("evi_fda.qmd", output_format = "all")
 ```
 
-Then render `evi_fda.qmd` with Quarto from the repository root (PDF output needs a LaTeX installation, for example `tinytex`).
+This produces `evi_fda.md`, the GitHub-readable report with figures, and `evi_fda.pdf`. The PDF needs a LaTeX installation, for example `tinytex`.
 
 ## Files
 
 ```
-evi_fda.qmd         Analysis notebook (smoothing, GCV, derivatives, FPCA)
-data/evi_data.csv   200 locations × 46 EVI readings (columns Day4 ... Day364)
+evi_fda.qmd                      Report source: analysis code and text
+evi_fda.md                       Rendered report for GitHub
+evi_fda_files/figure-commonmark/ Figures used by the report
+data/evi_data.csv                200 locations x 46 EVI readings (columns Day4 ... Day364)
 ```
+
+Originally a course project for Functional Data Analysis, University of Glasgow (2026). This version adds a full write-up and cross-validated smoothing of the components.

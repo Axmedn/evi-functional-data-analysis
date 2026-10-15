@@ -1,7 +1,8 @@
 .Rproj.user/
 .Rhistory
 .RData
-*_files/
+evi_fda_files/figure-pdf/
+.quarto/
 *.html
 *.pdf
 *.tex
