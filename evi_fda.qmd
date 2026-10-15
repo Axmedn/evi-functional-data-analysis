@@ -129,7 +129,8 @@ for (j in seq_along(pca_lambdas)) {
 }
 # Keep no penalty unless some penalty cuts the error by more than 1%
 best_gain  <- 1 - min(cv_error) / cv_error[pca_lambdas == 0]
-lambda_pca <- if (best_gain < 0.01) 0 else pca_lambdas[which.min(cv_error)]
+#lambda_pca <- if (best_gain < 0.01) 0 else pca_lambdas[which.min(cv_error)]
+lambda_pca <- if (best_gain <= 0.01) 0 else pca_lambdas[which.min(cv_error)]
 
 pca_sm     <- pca.fd(sm_ha$fd, nharm = nharm,
                      harmfdPar = fdPar(bbasis, curv.Lfd, lambda_pca))
