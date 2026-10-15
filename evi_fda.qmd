@@ -22,6 +22,7 @@ fig-width: 7
 fig-height: 3.4
 editor_options:
   chunk_output_type: console
+fig-pos: "htbp"
 ---
 
 ```{r}
